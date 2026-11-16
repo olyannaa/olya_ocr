@@ -1,0 +1,11 @@
+.venv/
+data/
+data_local/
+output/
+input/
+test_input/
+dist/
+offline_docker/
+__pycache__/
+*.pyc
+.DS_Store

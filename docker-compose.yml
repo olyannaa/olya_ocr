@@ -1,0 +1,21 @@
+services:
+  doc-processor:
+    image: doc-processor:1.0
+    build: .
+    container_name: doc-processor
+    ports:
+      - "8080:8080"                       # форма: http://<адрес-компьютера>:8080
+    volumes:
+      - docproc-data:/data                # состояние очереди, загруженные файлы, кэш страниц (том Docker)
+      - ./output:/data/output             # РЕЗУЛЬТАТ для LLM — папка output рядом с этим файлом
+      - ${INPUT_DIR:-./input}:/input:ro   # необязательно: папка/сетевой диск для кнопки «Обработать папку с сервера»
+    environment:
+      WORKERS: "5"                        # процессов распознавания (6 ядер -> 5)
+      OCR_MODE: "auto"                    # fast | auto | best
+      OCR_DPI: "300"
+      WORD_CONF: "55"                     # порог уверенности для «слов на проверку»
+    mem_limit: 12g                        # из 16 ГБ оставляем запас системе
+    restart: unless-stopped               # после сбоя или перезагрузки компьютера сервис поднимется и продолжит обработку
+
+volumes:
+  docproc-data:

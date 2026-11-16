@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Распознавание документов</title>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--ink:#1f2633;--muted:#6b7280;--line:#e5e7eb;--accent:#2457c5;--accent-soft:#e8eefb;
+  --ok:#1f7a4d;--ok-soft:#e5f4ec;--warn:#a15c07;--warn-soft:#fdf2e1;--err:#b42318;--err-soft:#fde8e7}
+*{box-sizing:border-box} [hidden]{display:none!important}
+body{margin:0;font:15px/1.5 -apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+main{max-width:900px;margin:0 auto;padding:24px 20px 60px;display:grid;gap:16px}
+h1{font-size:20px;margin:0;display:flex;align-items:center;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.card h2{font-size:16px;margin:0 0 12px}
+button,.btn{font:inherit;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px 16px;cursor:pointer;color:var(--ink);text-decoration:none;display:inline-block}
+button:hover,.btn:hover{border-color:var(--accent);color:var(--accent)}
+.primary{background:var(--accent)!important;border-color:var(--accent)!important;color:#fff!important;font-weight:600}
+.link{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer}
+#drop{border:2px dashed #c7cedb;border-radius:12px;padding:30px 20px;text-align:center;color:var(--muted)}
+#drop.over{border-color:var(--accent);background:var(--accent-soft)}
+#drop b{color:var(--ink);font-size:16px;display:block;margin-bottom:4px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.sp{flex:1}
+.bar{height:12px;border-radius:6px;background:#eceff3;overflow:hidden}
+.bar>div{height:100%;background:var(--ok);width:0;transition:width .4s}
+.muted{color:var(--muted)} .err{color:var(--err)} .ok{color:var(--ok)}
+.pill{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.pill.run{background:var(--ok-soft);color:var(--ok)}.pill.pause{background:var(--warn-soft);color:var(--warn)}.pill.idle{background:#e9ebef;color:var(--muted)}
+.big{font-size:17px}
+.list{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.item{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.item:last-child{border-bottom:0}
+.item .f{grid-column:2;font-size:12px;color:var(--muted);word-break:break-all}
+.tag{padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;height:fit-content;white-space:nowrap}
+.tag.error{background:var(--err-soft);color:var(--err)}.tag.warning{background:var(--warn-soft);color:var(--warn)}
+.empty{padding:14px;color:var(--muted);text-align:center}
+.words{display:grid;gap:10px}
+.word{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+.word img{max-width:100%;max-height:120px;object-fit:contain;justify-self:start;border:1px solid var(--line);border-radius:6px}
+.word .f{font-size:12px;color:var(--muted);word-break:break-all}
+.word .ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.word input[type=text]{width:220px;font:inherit;padding:5px 8px;border:1px solid var(--line);border-radius:6px}
+.word.saved{border-color:var(--ok);background:var(--ok-soft)}
+code{background:#f1f3f6;padding:1px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<main>
+  <div class="row" style="margin:0"><h1>Распознавание документов <span id="state" class="pill idle">ожидание</span></h1><span class="sp"></span>
+    <button id="pauseBtn" hidden>Пауза</button></div>
+
+  <section class="card">
+    <h2>1. Загрузите документы</h2>
+    <div id="drop"><b>Перетащите сюда файлы и папки</b>
+      или <button class="link" id="pickFiles">выберите файлы</button> / <button class="link" id="pickDir">выберите папку</button>
+      <div style="font-size:13px;margin-top:6px">PDF и сканы, Word, Excel, картинки (.tif, .jpg, .png), .txt</div></div>
+    <input type="file" id="fFiles" multiple hidden><input type="file" id="fDir" webkitdirectory multiple hidden>
+    <div class="row" id="sel" hidden><span id="selInfo"></span><span class="sp"></span>
+      <button id="clearSel">Отмена</button><button class="primary" id="startUpload">Загрузить и распознать</button></div>
+    <div class="row" id="up" hidden><span id="upInfo"></span></div>
+    <div class="row" id="srv" hidden><button class="link" id="scanInput">Распознать документы из подключённой папки сервера</button></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Распознавание</h2>
+    <div class="bar"><div id="procBar"></div></div>
+    <div class="row big" id="procInfo">Документов пока нет</div>
+    <div class="row muted" id="now"></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Ошибки <span class="muted" id="errCnt" style="font-weight:400"></span></h2>
+    <div class="list" id="issues"><div class="empty">Ошибок нет</div></div>
+  </section>
+
+  <section class="card" id="wordsCard" hidden>
+    <h2>4. Проверьте слова <span class="muted" id="wCnt" style="font-weight:400"></span></h2>
+    <div class="muted" style="margin-bottom:10px">Система не уверена в этих словах (выделены красной рамкой). Впишите правильное слово и нажмите Enter — оно попадёт в результат. Если слово распознано верно — «оставить как есть».</div>
+    <div class="words" id="words"></div>
+    <div class="row"><button id="wMore">Показать ещё</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Результат</h2>
+    <div class="row" style="margin:0">
+      <div id="resInfo" class="muted">Появится, когда документы будут распознаны.</div><span class="sp"></span>
+      <a class="btn primary" id="dlRes" href="/api/download/output.zip" hidden>Скачать результат</a>
+      <a class="btn" id="dlRep" href="/api/download/report.xlsx" hidden>Отчёт об ошибках (Excel)</a>
+    </div>
+    <div class="muted" style="font-size:13px;margin-top:10px">Для следующего этапа (поиск и ответы LLM) используется файл <code>chunks.jsonl</code> —
+      весь распознанный текст, разбитый на фрагменты, с указанием файла и страницы. Он же лежит на компьютере в папке <code>output</code>.</div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtB = b => b > 1e9 ? (b/1e9).toFixed(2)+' ГБ' : b > 1e6 ? (b/1e6).toFixed(1)+' МБ' : Math.max(1, Math.round(b/1e3))+' КБ';
+const SUP = ['.pdf','.tif','.tiff','.jpg','.jpeg','.png','.bmp','.docx','.doc','.rtf','.odt','.xlsx','.xlsm','.xls','.ods','.csv','.txt'];
+const extOf = p => (p.toLowerCase().match(/\.[^./\\]+$/) || [''])[0];
+const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return n + ' ' + (m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 10 || h >= 20) ? b : c); };
+
+// ---------- выбор файлов и папок
+const selected = new Map();
+const SERVICE = ['__pycache__', 'node_modules', '$recycle.bin', 'system volume information', 'thumbs.db'];
+const addFile = (path, f) => { path = path.replace(/^\/+/, '');
+  if (path.split('/').some(x => x.startsWith('.') || x.startsWith('~$') || SERVICE.includes(x.toLowerCase()))) return; // служебные папки и файлы
+  selected.set(path, f); };
+function showSel(){
+  const all = [...selected], ok = all.filter(([p]) => SUP.includes(extOf(p)));
+  $('#sel').hidden = !all.length;
+  $('#selInfo').innerHTML = `Выбрано <b>${plural(ok.length, 'файл', 'файла', 'файлов')}</b> (${fmtB(ok.reduce((s, [, f]) => s + f.size, 0))})` +
+    (all.length > ok.length ? ` <span class="muted">· ${all.length - ok.length} других форматов будут пропущены</span>` : '');
+}
+$('#pickFiles').onclick = () => $('#fFiles').click();
+$('#pickDir').onclick = () => $('#fDir').click();
+$('#fFiles').onchange = e => { for (const f of e.target.files) addFile(f.name, f); e.target.value = ''; showSel(); };
+$('#fDir').onchange = e => { for (const f of e.target.files) addFile(f.webkitRelativePath || f.name, f); e.target.value = ''; showSel(); };
+$('#clearSel').onclick = () => { selected.clear(); showSel(); };
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', async e => {
+  const entries = [...e.dataTransfer.items].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  for (const en of entries) await walk(en);
+  showSel();
+});
+async function walk(entry){
+  if (entry.isFile) return addFile(entry.fullPath, await new Promise((res, rej) => entry.file(res, rej)));
+  const r = entry.createReader();
+  for (let b; (b = await new Promise((res, rej) => r.readEntries(res, rej))).length;) for (const en of b) await walk(en);
+}
+
+// ---------- загрузка
+$('#startUpload').onclick = async () => {
+  const all = [...selected];
+  const ok = all.filter(([p]) => SUP.includes(extOf(p))), skipped = all.filter(([p]) => !SUP.includes(extOf(p))).map(([p]) => p);
+  selected.clear(); showSel(); $('#up').hidden = false; $('#upInfo').textContent = 'Подготовка…';
+  const r = await fetch('/api/batches', {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({files: ok.map(([path, f]) => ({path, size: f.size})), skipped})});
+  if (!r.ok) { $('#upInfo').innerHTML = `<span class="err">Не удалось начать загрузку: ${esc(await r.text())}</span>`; return; }
+  const b = await r.json(), byPath = new Map(ok);
+  const queue = b.uploads.map(u => ({...u, file: byPath.get(u.path)}));
+  const nAll = queue.length, total = queue.reduce((s, q) => s + q.file.size, 0);
+  let sent = 0, done = 0, failed = 0; const inflight = new Map();
+  const render = () => {
+    const cur = sent + [...inflight.values()].reduce((a, c) => a + c, 0);
+    $('#upInfo').innerHTML = done + failed === nAll
+      ? `<span class="ok">Загружено ${plural(done, 'файл', 'файла', 'файлов')}</span>` + (failed ? ` · <span class="err">${failed} не загрузились — выберите их ещё раз</span>` : '') +
+        (b.already.length ? ` <span class="muted">· ${b.already.length} уже были загружены раньше</span>` : '')
+      : `Загрузка: ${done} из ${nAll} файлов · ${fmtB(cur)} из ${fmtB(total)} (${Math.round(total ? cur / total * 100 : 100)}%)`;
+  };
+  render();
+  const worker = async () => {
+    for (let q; (q = queue.shift());) {
+      let good = false;
+      for (let a = 0; a < 3 && !good; a++) good = await new Promise(res => {
+        const x = new XMLHttpRequest(); x.open('PUT', '/api/upload/' + q.file_id);
+        x.upload.onprogress = e => { inflight.set(q.file_id, e.loaded); render(); };
+        x.onload = () => res(x.status === 200 || x.status === 409); x.onerror = () => res(false); x.send(q.file);
+      });
+      inflight.delete(q.file_id);
+      if (good) { done++; sent += q.file.size; } else failed++;
+      render();
+    }
+  };
+  await Promise.all([1, 2, 3].map(worker));
+  refresh();
+};
+$('#scanInput').onclick = async () => {
+  const r = await fetch('/api/scan-input', {method: 'POST'}), j = await r.json();
+  $('#up').hidden = false;
+  $('#upInfo').innerHTML = r.ok ? `Из папки сервера добавлено: <b>${j.added}</b>` + (j.already ? ` <span class="muted">· ${j.already} уже были</span>` : '') : `<span class="err">${esc(j.detail)}</span>`;
+  refresh();
+};
+
+// ---------- состояние
+let lastIssue = 0, nIssues = 0;
+async function refresh(){
+  const s = await (await fetch('/api/status')).json();
+  const n = k => (s.files[k] || {n: 0}).n;
+  const total = Object.values(s.files).reduce((a, b) => a + b.n, 0) - n('uploading');
+  const finished = n('done') + n('error') + n('skipped'), busy = n('queued') + n('processing');
+  $('#procBar').style.width = (total ? finished / total * 100 : 0) + '%';
+  $('#procInfo').innerHTML = !total ? 'Документов пока нет' :
+    `Готово <b>${finished}</b> из ${plural(total, 'файла', 'файлов', 'файлов')} · ${plural(s.pages_done, 'страница', 'страницы', 'страниц')}` +
+    (n('error') ? ` · <span class="err">с ошибкой: ${n('error')}</span>` : '');
+  $('#now').innerHTML = busy ? s.active.map(a => `Сейчас: ${esc(a.rel_path.split('/').pop())} — стр. ${a.pages_done || 0}${a.pages_total ? ' из ' + a.pages_total : ''}`).join('<br>') +
+    (s.pages_per_min ? `<br>Скорость: ~${Math.round(s.pages_per_min)} стр./мин` : '') : '';
+  $('#state').className = 'pill ' + (s.paused ? 'pause' : busy ? 'run' : 'idle');
+  $('#state').textContent = s.paused ? 'пауза' : busy ? 'идёт распознавание' : (total ? 'готово' : 'ожидание');
+  $('#pauseBtn').textContent = s.paused ? 'Продолжить' : 'Пауза';
+  $('#pauseBtn').hidden = !busy && !s.paused;
+  $('#srv').hidden = !s.input_available;
+  const e = s.export;
+  $('#dlRes').hidden = $('#dlRep').hidden = !e;
+  $('#resInfo').innerHTML = s.exporting ? 'Обновляю результат…' : e ?
+    `<span class="ok">Готов</span> · ${plural(e.docs, 'документ', 'документа', 'документов')} · обновлён ${e.time.slice(11, 16)}` +
+    (busy ? ' <span class="muted">(обновится после распознавания)</span>' : '') : 'Появится, когда документы будут распознаны.';
+  $('#wordsCard').hidden = !s.words_open && !$('#words').children.length;
+  $('#wCnt').textContent = s.words_open ? `— осталось ${s.words_open}` : '— все проверены';
+  if (s.words_open && !$('#words').children.length) loadWords();
+  await loadIssues();
+}
+async function loadIssues(){
+  const rows = await (await fetch(`/api/issues?after=${lastIssue}&severity=error,warning&limit=500`)).json();
+  if (!rows.length) return;
+  if (!nIssues) $('#issues').innerHTML = '<div id="errs"></div><div id="warns"></div>';
+  lastIssue = Math.max(lastIssue, ...rows.map(r => r.id));
+  nIssues += rows.length;
+  const html = r => `<div class="item"><span class="tag ${r.severity}">${r.severity === 'error' ? 'ошибка' : 'внимание'}</span>
+    <span>${esc(r.message)}</span><span class="f">${esc(r.rel_path)}</span></div>`;
+  $('#errs').insertAdjacentHTML('afterbegin', rows.filter(r => r.severity === 'error').map(html).join(''));   // ошибки всегда сверху
+  $('#warns').insertAdjacentHTML('afterbegin', rows.filter(r => r.severity !== 'error').map(html).join(''));
+  const ne = $('#errs').children.length, nw = $('#warns').children.length;
+  $('#errCnt').textContent = `— ${plural(ne, 'ошибка', 'ошибки', 'ошибок')}` + (nw ? `, ${plural(nw, 'предупреждение', 'предупреждения', 'предупреждений')}` : '');
+}
+
+// ---------- проверка слов
+let wOff = 0;
+async function loadWords(more){
+  if (!more) { wOff = 0; $('#words').innerHTML = ''; }
+  const j = await (await fetch(`/api/words?only_open=true&offset=${wOff}&limit=10`)).json();
+  wOff += j.rows.length;
+  $('#words').insertAdjacentHTML('beforeend', j.rows.map(w => `<div class="word" data-id="${w.id}">
+    ${w.crop ? `<img loading="lazy" src="/api/crop/${encodeURI(w.crop)}">` : ''}
+    <div class="ctl">Распознано: <b>${esc(w.word)}</b> → <input type="text" placeholder="правильное слово">
+      <label class="muted"><input type="checkbox"> исправить везде</label><button data-a="save">Сохранить</button>
+      <button data-a="keep" class="link">оставить как есть</button></div>
+    <div class="f">${esc(w.rel_path)}, стр. ${w.page}</div></div>`).join(''));
+  $('#wMore').hidden = wOff >= j.total;
+}
+$('#words').addEventListener('click', e => { if (e.target.tagName === 'BUTTON') saveWord(e.target.closest('.word'), e.target.dataset.a === 'keep'); });
+$('#words').addEventListener('keydown', e => { if (e.key === 'Enter') saveWord(e.target.closest('.word')); });
+async function saveWord(card, keep){
+  const val = keep ? card.querySelector('b').textContent : card.querySelector('input[type=text]').value.trim(); if (!val) return;
+  const r = await fetch('/api/words/' + card.dataset.id, {method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({correction: val, apply_all: card.querySelector('input[type=checkbox]').checked})});
+  if (r.ok) { card.classList.add('saved'); card.nextElementSibling?.querySelector('input[type=text]')?.focus(); }
+}
+$('#wMore').onclick = () => loadWords(true);
+$('#pauseBtn').onclick = async () => { await fetch('/api/pause?paused=' + ($('#pauseBtn').textContent === 'Пауза'), {method: 'POST'}); refresh(); };
+
+refresh(); setInterval(refresh, 3000);
+</script>
+</body>
+</html>
